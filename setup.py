@@ -1,17 +1,17 @@
-"""py2app build configuration for cmkbar."""
+"""py2app build configuration for cmkview."""
 
 from setuptools import setup
 
-APP = ["cmkbar.py"]
+APP = ["cmkview.py"]
 DATA_FILES = [("", ["popup.html"])]
 
 OPTIONS = {
     "argv_emulation": False,
-    "iconfile": None,  # Replace with "cmkbar.icns" if you have an icon
+    "iconfile": None,  # Replace with "cmkview.icns" if you have an icon
     "plist": {
-        "CFBundleName": "cmkbar",
-        "CFBundleDisplayName": "cmkbar",
-        "CFBundleIdentifier": "com.cmkbar.app",
+        "CFBundleName": "cmkview",
+        "CFBundleDisplayName": "cmkview",
+        "CFBundleIdentifier": "com.cmkview.app",
         "CFBundleVersion": "0.1.0",
         "CFBundleShortVersionString": "0.1.0",
         "LSUIElement": True,  # Hide from Dock, menu bar only
@@ -21,7 +21,7 @@ OPTIONS = {
 }
 
 setup(
-    name="cmkbar",
+    name="cmkview",
     app=APP,
     data_files=DATA_FILES,
     options={"py2app": OPTIONS},

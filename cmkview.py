@@ -1,4 +1,4 @@
-"""cmkbar - macOS app for monitoring CheckMK problems."""
+"""cmkview - macOS app for monitoring CheckMK problems."""
 
 from __future__ import annotations
 
@@ -68,7 +68,7 @@ class AppDelegate(AppKit.NSObject):
         self._bar_item = AppKit.NSStatusBar.systemStatusBar().statusItemWithLength_(
             AppKit.NSVariableStatusItemLength
         )
-        self._bar_item.button().setTitle_("cmkbar ✓")
+        self._bar_item.button().setTitle_("cmkview ✓")
 
         bar_menu = AppKit.NSMenu.alloc().init()
         for label, sel in [
@@ -108,7 +108,7 @@ class AppDelegate(AppKit.NSObject):
         self._main_window = AppKit.NSWindow.alloc().initWithContentRect_styleMask_backing_defer_(
             rect, style, AppKit.NSBackingStoreBuffered, False
         )
-        self._main_window.setTitle_("cmkbar - CheckMK Monitor")
+        self._main_window.setTitle_("cmkview - CheckMK Monitor")
         self._main_window.setMinSize_(Foundation.NSMakeSize(360, 360))
         self._main_window.setReleasedWhenClosed_(False)
 
@@ -194,7 +194,7 @@ class AppDelegate(AppKit.NSObject):
     def onPollSuccess_(self, _obj):
         problem_count = len(self._problems)
         self._bar_item.button().setTitle_(
-            "cmkbar ✓" if problem_count == 0 else f"cmkbar ⚠ {problem_count}"
+            "cmkview ✓" if problem_count == 0 else f"cmkview ⚠ {problem_count}"
         )
         payload = build_popup_payload(self._problems)
         if self._page_loaded:
@@ -204,7 +204,7 @@ class AppDelegate(AppKit.NSObject):
 
     @objc.typedSelector(b"v@:@")
     def onPollError_(self, _obj):
-        self._bar_item.button().setTitle_("cmkbar ✗")
+        self._bar_item.button().setTitle_("cmkview ✗")
 
 
 def build_popup_payload(problems: list[dict]) -> dict:

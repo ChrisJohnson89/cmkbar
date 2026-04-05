@@ -1,4 +1,4 @@
-# cmkbar
+# cmkview
 
 macOS menu bar app for monitoring a CheckMK server. Not a Nagstamon fork — a fresh rewrite focused solely on CheckMK.
 
@@ -20,7 +20,7 @@ macOS menu bar app for monitoring a CheckMK server. Not a Nagstamon fork — a f
 
 ## Config
 
-Single file at `~/.cmkbar.toml`:
+Single file at `~/.cmkview.toml`:
 
 ```toml
 url = "https://mon.example.com/mysite"

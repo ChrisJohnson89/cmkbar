@@ -1,4 +1,4 @@
-# cmkbar
+# cmkview
 
 A lightweight macOS menu bar app that monitors a [CheckMK](https://checkmk.com/) server and displays current problems in a floating popup table.
 
@@ -12,7 +12,7 @@ Inspired by [Nagstamon](https://github.com/henriwahl/nagstamon) but built from s
 
 ## Configuration
 
-Create `~/.cmkbar.toml`:
+Create `~/.cmkview.toml`:
 
 ```toml
 url = "https://mon.example.com/mysite"
@@ -32,7 +32,7 @@ interval = 60
 
 ```bash
 pip install -r requirements.txt
-python cmkbar.py
+python cmkview.py
 ```
 
 ## Build the .app
@@ -42,7 +42,7 @@ pip install -r requirements.txt
 python setup.py py2app
 ```
 
-The app bundle is created at `dist/cmkbar.app`. Drag it to `/Applications` and add it to **System Settings → General → Login Items** to start on boot.
+The app bundle is created at `dist/cmkview.app`. Drag it to `/Applications` and add it to **System Settings → General → Login Items** to start on boot.
 
 ## How it works
 
