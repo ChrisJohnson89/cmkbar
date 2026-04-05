@@ -1,0 +1,4 @@
+rumps>=0.4.0
+pywebview>=5.0
+requests>=2.31
+py2app>=0.28

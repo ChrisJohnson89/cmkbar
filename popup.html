@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif;
+    font-size: 12px;
+    background: #1e1e1e;
+    color: #e0e0e0;
+    overflow-x: hidden;
+  }
+
+  .header {
+    position: sticky;
+    top: 0;
+    background: #2d2d2d;
+    padding: 8px 12px;
+    font-size: 13px;
+    font-weight: 600;
+    border-bottom: 1px solid #444;
+    display: flex;
+    justify-content: space-between;
+  }
+
+  .header .count { color: #ff6b6b; }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  th {
+    position: sticky;
+    top: 35px;
+    background: #2d2d2d;
+    text-align: left;
+    padding: 6px 8px;
+    font-weight: 600;
+    font-size: 11px;
+    text-transform: uppercase;
+    color: #999;
+    border-bottom: 1px solid #444;
+  }
+
+  td {
+    padding: 5px 8px;
+    border-bottom: 1px solid #333;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 300px;
+  }
+
+  td:last-child {
+    white-space: normal;
+    max-width: 400px;
+  }
+
+  tr.CRIT, tr.DOWN  { background: #5c1a1a; color: #ff8a8a; }
+  tr.WARN            { background: #5c4a1a; color: #ffd666; }
+  tr.UNKN, tr.UNREACH { background: #4a3320; color: #ffb366; }
+
+  tr:hover { filter: brightness(1.2); }
+
+  .ok-message {
+    text-align: center;
+    padding: 60px 20px;
+    color: #6b6;
+    font-size: 16px;
+  }
+</style>
+</head>
+<body>
+  <div id="app"></div>
+  <script>
+    function render(problems) {
+      const app = document.getElementById("app");
+
+      if (!problems || problems.length === 0) {
+        app.innerHTML = '<div class="ok-message">All clear — no problems</div>';
+        return;
+      }
+
+      const stateClass = (s) => {
+        s = String(s).toUpperCase();
+        if (s === "2" || s === "CRIT" || s === "CRITICAL") return "CRIT";
+        if (s === "1" || s === "WARN" || s === "WARNING")  return "WARN";
+        if (s === "3" || s === "UNKN" || s === "UNKNOWN")  return "UNKN";
+        if (s === "DOWN")   return "DOWN";
+        if (s === "UNREACH" || s === "UNREACHABLE") return "UNREACH";
+        return "";
+      };
+
+      const stateLabel = (s) => {
+        s = String(s).toUpperCase();
+        const map = {"0":"OK","1":"WARN","2":"CRIT","3":"UNKN","DOWN":"DOWN","UNREACH":"UNREACH"};
+        return map[s] || s;
+      };
+
+      let html = `<div class="header"><span>cmkbar</span><span class="count">${problems.length} problem${problems.length !== 1 ? "s" : ""}</span></div>`;
+      html += "<table><thead><tr><th>Host</th><th>Service</th><th>State</th><th>Duration</th><th>Attempt</th><th>Message</th></tr></thead><tbody>";
+
+      for (const p of problems) {
+        const cls = stateClass(p.state);
+        html += `<tr class="${cls}">`;
+        html += `<td>${esc(p.host)}</td>`;
+        html += `<td>${esc(p.service)}</td>`;
+        html += `<td>${stateLabel(p.state)}</td>`;
+        html += `<td>${esc(p.duration)}</td>`;
+        html += `<td>${esc(p.attempt)}</td>`;
+        html += `<td>${esc(p.message)}</td>`;
+        html += "</tr>";
+      }
+
+      html += "</tbody></table>";
+      app.innerHTML = html;
+    }
+
+    function esc(s) {
+      if (s == null) return "";
+      const d = document.createElement("div");
+      d.textContent = String(s);
+      return d.innerHTML;
+    }
+
+    // Called from Python via webview.evaluate_js or window.pybridge
+    window.updateProblems = render;
+  </script>
+</body>
+</html>
