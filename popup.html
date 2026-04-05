@@ -97,10 +97,17 @@
     font-family: "SF Mono", "Menlo", monospace;
   }
 
-  .badge.down { background: var(--down-bg); color: var(--down-text); border: 1px solid var(--down-border); }
-  .badge.crit { background: var(--crit-bg); color: var(--crit-text); border: 1px solid var(--crit-border); }
-  .badge.warn { background: var(--warn-bg); color: var(--warn-text); border: 1px solid var(--warn-border); }
-  .badge.unkn { background: var(--unkn-bg); color: var(--unkn-text); border: 1px solid var(--unkn-border); }
+  .badge.down { background: var(--down-bg); color: var(--down-text); border: 1px solid var(--down-border); cursor: pointer; user-select: none; transition: all 0.15s; }
+  .badge.crit { background: var(--crit-bg); color: var(--crit-text); border: 1px solid var(--crit-border); cursor: pointer; user-select: none; transition: all 0.15s; }
+  .badge.warn { background: var(--warn-bg); color: var(--warn-text); border: 1px solid var(--warn-border); cursor: pointer; user-select: none; transition: all 0.15s; }
+  .badge.unkn { background: var(--unkn-bg); color: var(--unkn-text); border: 1px solid var(--unkn-border); cursor: pointer; user-select: none; transition: all 0.15s; }
+
+  .badge.off {
+    opacity: 0.3;
+    filter: saturate(0.2);
+  }
+  .badge:hover { filter: brightness(1.3); }
+  .badge.off:hover { opacity: 0.5; filter: saturate(0.2) brightness(1.3); }
 
   /* === Content area === */
   .content { padding: 12px 16px; }
@@ -298,6 +305,7 @@
 // Global state — survives across data refreshes
 let rawData = null;
 let hideAcked = false;
+let hiddenStates = {};    // badge -> true if toggled off (e.g. "DOWN", "CRIT", "WARN", "UNKN")
 let closedGroups = {};    // group id -> true if user collapsed it
 let expandedHosts = {};   // "groupId/host" -> true if user expanded it
 
@@ -338,11 +346,12 @@ function redraw() {
   const totalProblems = filtered.reduce((n, g) => n + g.problem_count, 0);
   const totalHosts = new Set(filtered.flatMap(g => g.hosts.map(h => h.host))).size;
 
-  // Count states from filtered data
+  // Count states from RAW data (so badges always show totals even when filtered)
   let downCount = 0, critCount = 0, warnCount = 0, unknCount = 0;
-  for (const g of filtered) {
+  for (const g of data.groups) {
     for (const h of g.hosts) {
       for (const svc of h.items) {
+        if (hideAcked && svc.acknowledged) continue;
         const b = svc.state_badge;
         if (b === "DOWN") downCount++;
         else if (b === "CRIT") critCount++;
@@ -362,14 +371,14 @@ function redraw() {
     <span class="summary">
       <span>${totalHosts} hosts</span>
       <span>${totalProblems} problems</span>`;
-  if (downCount) html += `<span class="badge down">${downCount} DOWN</span>`;
-  if (critCount) html += `<span class="badge crit">${critCount} CRIT</span>`;
-  if (warnCount) html += `<span class="badge warn">${warnCount} WARN</span>`;
-  if (unknCount) html += `<span class="badge unkn">${unknCount} UNKN</span>`;
+  if (downCount || hiddenStates["DOWN"]) html += `<span class="badge down${hiddenStates['DOWN'] ? ' off' : ''}" data-state="DOWN">${downCount} DOWN</span>`;
+  if (critCount || hiddenStates["CRIT"]) html += `<span class="badge crit${hiddenStates['CRIT'] ? ' off' : ''}" data-state="CRIT">${critCount} CRIT</span>`;
+  if (warnCount || hiddenStates["WARN"]) html += `<span class="badge warn${hiddenStates['WARN'] ? ' off' : ''}" data-state="WARN">${warnCount} WARN</span>`;
+  if (unknCount || hiddenStates["UNKN"]) html += `<span class="badge unkn${hiddenStates['UNKN'] ? ' off' : ''}" data-state="UNKN">${unknCount} UNKN</span>`;
   html += `</span></div><div class="content">`;
 
   if (filtered.length === 0) {
-    html += '<div class="empty-filter">All problems are acknowledged or in downtime</div>';
+    html += '<div class="empty-filter">All problems filtered out — click badges or Hide Ack to adjust</div>';
   } else {
     for (const g of filtered) {
       html += renderGroup(g);
@@ -384,6 +393,16 @@ function redraw() {
     e.stopPropagation();
     hideAcked = !hideAcked;
     redraw();
+  });
+
+  // State badge toggle handlers
+  app.querySelectorAll('.badge[data-state]').forEach(el => {
+    el.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const state = el.dataset.state;
+      hiddenStates[state] = !hiddenStates[state];
+      redraw();
+    });
   });
 
   // Group toggle handlers
@@ -401,7 +420,8 @@ function redraw() {
 }
 
 function filterGroups(groups) {
-  if (!hideAcked) return groups;
+  const hasStateFilter = Object.values(hiddenStates).some(v => v);
+  if (!hideAcked && !hasStateFilter) return groups;
 
   const result = [];
   for (const g of groups) {
@@ -409,6 +429,7 @@ function filterGroups(groups) {
     for (const h of g.hosts) {
       const filteredItems = h.items.filter(svc => {
         if (hideAcked && svc.acknowledged) return false;
+        if (hiddenStates[svc.state_badge]) return false;
         return true;
       });
       if (filteredItems.length === 0) continue;
