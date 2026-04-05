@@ -16,7 +16,8 @@ OPTIONS = {
         "CFBundleShortVersionString": "0.1.0",
         "LSUIElement": True,  # Hide from Dock, menu bar only
     },
-    "packages": ["rumps", "webview", "requests", "certifi"],
+    "packages": ["requests", "certifi"],
+    "frameworks": [],
 }
 
 setup(

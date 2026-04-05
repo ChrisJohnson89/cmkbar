@@ -1,117 +1,169 @@
-"""cmkbar — macOS menu bar monitor for CheckMK."""
+"""cmkbar — macOS app for monitoring CheckMK problems."""
 
 import json
 import os
 import threading
-import time
+import urllib.parse
 
-import rumps
-import webview
+import AppKit
+import Foundation
+import WebKit
+import objc
 
 import checkmk
 import config
 
 
-POPUP_HTML = os.path.join(os.path.dirname(os.path.abspath(__file__)), "popup.html")
+POPUP_HTML_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "popup.html")
 
 
-class CmkBarApp(rumps.App):
-    def __init__(self, cfg: dict):
-        super().__init__("✓", quit_button=None)
-        self.cfg = cfg
-        self.client = checkmk.CheckMKClient(cfg["url"], cfg["username"], cfg["password"])
-        self.problems: list[dict] = []
-        self.window = None
-        self._window_lock = threading.Lock()
+class AppDelegate(AppKit.NSObject):
+    def init(self):
+        self = objc.super(AppDelegate, self).init()
+        if self is None:
+            return None
+        self._problems = []
+        self._main_window = None
+        self._wk_view = None
+        self._bar_item = None
+        self._cmk_client = None
+        self._app_cfg = None
+        return self
 
-        self.menu = [
-            rumps.MenuItem("Show Problems", callback=self.show_popup),
-            rumps.MenuItem("Refresh Now", callback=self.manual_refresh),
-            None,  # separator
-            rumps.MenuItem("Quit", callback=self.quit_app),
-        ]
+    def applicationDidFinishLaunching_(self, notification):
+        self._app_cfg = config.load()
+        self._cmk_client = checkmk.CheckMKClient(
+            self._app_cfg["url"], self._app_cfg["username"], self._app_cfg["password"]
+        )
 
-        self.timer = rumps.Timer(self.poll, cfg["interval"])
-        self.timer.start()
-        # Initial poll in background
+        # --- Menu bar status item ---
+        self._bar_item = AppKit.NSStatusBar.systemStatusBar().statusItemWithLength_(
+            AppKit.NSVariableStatusItemLength
+        )
+        self._bar_item.button().setTitle_("cmkbar ✓")
+
+        bar_menu = AppKit.NSMenu.alloc().init()
+        for label, sel in [
+            ("Show Dashboard", self.cmdShowDash_),
+            ("Refresh Now", self.cmdRefresh_),
+        ]:
+            mi = AppKit.NSMenuItem.alloc().initWithTitle_action_keyEquivalent_(label, sel, "")
+            mi.setTarget_(self)
+            bar_menu.addItem_(mi)
+        bar_menu.addItem_(AppKit.NSMenuItem.separatorItem())
+        qi = AppKit.NSMenuItem.alloc().initWithTitle_action_keyEquivalent_("Quit", self.cmdQuit_, "q")
+        qi.setTarget_(self)
+        bar_menu.addItem_(qi)
+        self._bar_item.setMenu_(bar_menu)
+
+        # --- Main app window with WebView ---
+        self._setup_main_window()
+
+        # --- Poll timer ---
+        interval = self._app_cfg.get("interval", 60)
+        Foundation.NSTimer.scheduledTimerWithTimeInterval_target_selector_userInfo_repeats_(
+            interval, self, self.onPollTimer_, None, True
+        )
         threading.Thread(target=self._do_poll, daemon=True).start()
 
-    def poll(self, _sender):
+    def _setup_main_window(self):
+        screen = AppKit.NSScreen.mainScreen().frame()
+        w, h = 1200, 700
+        x = (screen.size.width - w) / 2
+        y = (screen.size.height - h) / 2
+        rect = Foundation.NSMakeRect(x, y, w, h)
+
+        style = (
+            AppKit.NSTitledWindowMask
+            | AppKit.NSClosableWindowMask
+            | AppKit.NSResizableWindowMask
+            | AppKit.NSMiniaturizableWindowMask
+        )
+        self._main_window = AppKit.NSWindow.alloc().initWithContentRect_styleMask_backing_defer_(
+            rect, style, AppKit.NSBackingStoreBuffered, False
+        )
+        self._main_window.setTitle_("cmkbar — CheckMK Monitor")
+        self._main_window.setMinSize_(Foundation.NSMakeSize(600, 300))
+        self._main_window.setReleasedWhenClosed_(False)
+
+        wk_conf = WebKit.WKWebViewConfiguration.alloc().init()
+        content_rect = Foundation.NSMakeRect(0, 0, w, h)
+        self._wk_view = WebKit.WKWebView.alloc().initWithFrame_configuration_(
+            content_rect, wk_conf
+        )
+        self._wk_view.setAutoresizingMask_(
+            AppKit.NSViewWidthSizable | AppKit.NSViewHeightSizable
+        )
+
+        # Load a blank page initially
+        self._load_html_with_data([])
+
+        self._main_window.contentView().addSubview_(self._wk_view)
+        self._main_window.makeKeyAndOrderFront_(None)
+        AppKit.NSApp.activateIgnoringOtherApps_(True)
+
+    def _load_html_with_data(self, problems):
+        """Read the HTML template, inject problem data, and load it into the WebView."""
+        with open(POPUP_HTML_PATH, "r") as f:
+            html = f.read()
+
+        # Inject data by replacing the placeholder script call
+        data_json = json.dumps(problems)
+        inject = f"<script>document.addEventListener('DOMContentLoaded', function() {{ updateProblems({data_json}); }});</script>"
+        html = html.replace("</body>", f"{inject}</body>")
+
+        base_url = Foundation.NSURL.fileURLWithPath_(os.path.dirname(POPUP_HTML_PATH) + "/")
+        self._wk_view.loadHTMLString_baseURL_(html, base_url)
+
+    # -- Menu actions --
+
+    @objc.typedSelector(b"v@:@")
+    def cmdShowDash_(self, sender):
+        self._main_window.makeKeyAndOrderFront_(None)
+        AppKit.NSApp.activateIgnoringOtherApps_(True)
+
+    @objc.typedSelector(b"v@:@")
+    def cmdRefresh_(self, sender):
         threading.Thread(target=self._do_poll, daemon=True).start()
+
+    @objc.typedSelector(b"v@:@")
+    def cmdQuit_(self, sender):
+        AppKit.NSApp.terminate_(None)
+
+    @objc.typedSelector(b"v@:@")
+    def onPollTimer_(self, timer):
+        threading.Thread(target=self._do_poll, daemon=True).start()
+
+    # -- Polling --
 
     def _do_poll(self):
         try:
-            self.problems = self.client.fetch_all_problems()
-            self._update_title()
-            self._push_to_popup()
+            self._problems = self._cmk_client.fetch_all_problems()
+            self.performSelectorOnMainThread_withObject_waitUntilDone_(
+                self.onPollSuccess_, None, False
+            )
         except Exception as e:
-            self.title = "✗"
             print(f"Poll error: {e}")
+            self.performSelectorOnMainThread_withObject_waitUntilDone_(
+                self.onPollError_, None, False
+            )
 
-    def _update_title(self):
-        n = len(self.problems)
-        if n == 0:
-            self.title = "✓"
-        else:
-            self.title = f"⚠ {n}"
+    @objc.typedSelector(b"v@:@")
+    def onPollSuccess_(self, _obj):
+        n = len(self._problems)
+        self._bar_item.button().setTitle_("cmkbar ✓" if n == 0 else f"cmkbar ⚠ {n}")
+        self._load_html_with_data(self._problems)
 
-    def _push_to_popup(self):
-        with self._window_lock:
-            if self.window is not None:
-                js = f"updateProblems({json.dumps(self.problems)})"
-                try:
-                    self.window.evaluate_js(js)
-                except Exception:
-                    pass
-
-    def show_popup(self, _sender=None):
-        threading.Thread(target=self._open_popup, daemon=True).start()
-
-    def _open_popup(self):
-        with self._window_lock:
-            if self.window is not None:
-                try:
-                    self.window.show()
-                    return
-                except Exception:
-                    self.window = None
-
-        win = webview.create_window(
-            "cmkbar",
-            POPUP_HTML,
-            width=900,
-            height=500,
-            resizable=True,
-            on_top=True,
-        )
-        self.window = win
-
-        def on_loaded():
-            js = f"updateProblems({json.dumps(self.problems)})"
-            win.evaluate_js(js)
-
-        win.events.loaded += on_loaded
-        webview.start()
-        # webview.start() blocks until all windows close
-        with self._window_lock:
-            self.window = None
-
-    def manual_refresh(self, _sender):
-        threading.Thread(target=self._do_poll, daemon=True).start()
-
-    def quit_app(self, _sender):
-        with self._window_lock:
-            if self.window is not None:
-                try:
-                    self.window.destroy()
-                except Exception:
-                    pass
-        rumps.quit_application()
+    @objc.typedSelector(b"v@:@")
+    def onPollError_(self, _obj):
+        self._bar_item.button().setTitle_("cmkbar ✗")
 
 
 def main():
-    cfg = config.load()
-    app = CmkBarApp(cfg)
+    app = AppKit.NSApplication.sharedApplication()
+    app.setActivationPolicy_(AppKit.NSApplicationActivationPolicyRegular)
+    delegate = AppDelegate.alloc().init()
+    app.setDelegate_(delegate)
     app.run()
 
 

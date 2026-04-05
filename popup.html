@@ -6,70 +6,115 @@
   * { margin: 0; padding: 0; box-sizing: border-box; }
 
   body {
-    font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif;
+    font-family: "SF Mono", "Menlo", "Monaco", monospace;
     font-size: 12px;
-    background: #1e1e1e;
+    background: #1a1a1a;
     color: #e0e0e0;
-    overflow-x: hidden;
   }
 
-  .header {
+  .toolbar {
     position: sticky;
     top: 0;
-    background: #2d2d2d;
-    padding: 8px 12px;
-    font-size: 13px;
-    font-weight: 600;
-    border-bottom: 1px solid #444;
+    z-index: 10;
+    background: #2a2a2a;
+    padding: 6px 12px;
     display: flex;
     justify-content: space-between;
+    align-items: center;
+    border-bottom: 2px solid #444;
+    font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+    font-size: 13px;
   }
 
-  .header .count { color: #ff6b6b; }
+  .toolbar .title { font-weight: 700; }
+  .toolbar .stats { color: #aaa; font-size: 12px; }
+  .toolbar .stats .crit-count { color: #ff4444; font-weight: 700; }
+  .toolbar .stats .warn-count { color: #ffcc00; font-weight: 700; }
 
   table {
     width: 100%;
     border-collapse: collapse;
   }
 
+  thead { position: sticky; top: 37px; z-index: 5; }
+
   th {
-    position: sticky;
-    top: 35px;
-    background: #2d2d2d;
+    background: #333;
     text-align: left;
-    padding: 6px 8px;
-    font-weight: 600;
+    padding: 4px 8px;
+    font-weight: 700;
     font-size: 11px;
-    text-transform: uppercase;
-    color: #999;
-    border-bottom: 1px solid #444;
+    color: #ccc;
+    border-bottom: 2px solid #555;
+    white-space: nowrap;
+    user-select: none;
   }
 
   td {
-    padding: 5px 8px;
-    border-bottom: 1px solid #333;
+    padding: 3px 8px;
+    border-bottom: 1px solid rgba(0,0,0,0.3);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    max-width: 300px;
+    font-size: 12px;
+    line-height: 1.4;
   }
+
+  /* Column widths */
+  col.c-host    { width: 100px; }
+  col.c-service { width: 80px; }
+  col.c-flags   { width: 40px; }
+  col.c-state   { width: 80px; }
+  col.c-last    { width: 100px; }
+  col.c-dur     { width: 100px; }
+  col.c-att     { width: 40px; }
+  col.c-msg     { width: auto; }
 
   td:last-child {
     white-space: normal;
-    max-width: 400px;
+    word-break: break-word;
   }
 
-  tr.CRIT, tr.DOWN  { background: #5c1a1a; color: #ff8a8a; }
-  tr.WARN            { background: #5c4a1a; color: #ffd666; }
-  tr.UNKN, tr.UNREACH { background: #4a3320; color: #ffb366; }
+  /* === Nagstamon-style solid row colours === */
+  tr.CRITICAL td, tr.DOWN td {
+    background: #cc0000;
+    color: #fff;
+    border-bottom-color: #990000;
+  }
+  tr.WARNING td {
+    background: #ccaa00;
+    color: #000;
+    border-bottom-color: #aa8800;
+  }
+  tr.UNKNOWN td, tr.UNREACHABLE td {
+    background: #cc6600;
+    color: #fff;
+    border-bottom-color: #aa5500;
+  }
+  tr.PENDING td {
+    background: #555;
+    color: #ccc;
+    border-bottom-color: #444;
+  }
 
-  tr:hover { filter: brightness(1.2); }
+  /* Downtime rows get muted */
+  tr.in-downtime td { opacity: 0.6; }
+
+  tr:hover td { filter: brightness(1.15); }
+
+  .flags { font-size: 11px; letter-spacing: 1px; }
 
   .ok-message {
     text-align: center;
-    padding: 60px 20px;
-    color: #6b6;
-    font-size: 16px;
+    padding: 80px 20px;
+    color: #4a4;
+    font-size: 18px;
+    font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+  }
+  .ok-message .sub {
+    margin-top: 8px;
+    font-size: 13px;
+    color: #666;
   }
 </style>
 </head>
@@ -80,39 +125,61 @@
       const app = document.getElementById("app");
 
       if (!problems || problems.length === 0) {
-        app.innerHTML = '<div class="ok-message">All clear — no problems</div>';
+        app.innerHTML = '<div class="ok-message">All clear<div class="sub">No problems detected</div></div>';
         return;
       }
 
-      const stateClass = (s) => {
-        s = String(s).toUpperCase();
-        if (s === "2" || s === "CRIT" || s === "CRITICAL") return "CRIT";
-        if (s === "1" || s === "WARN" || s === "WARNING")  return "WARN";
-        if (s === "3" || s === "UNKN" || s === "UNKNOWN")  return "UNKN";
-        if (s === "DOWN")   return "DOWN";
-        if (s === "UNREACH" || s === "UNREACHABLE") return "UNREACH";
-        return "";
-      };
+      // Counts
+      let crits = 0, warns = 0, unknowns = 0;
+      for (const p of problems) {
+        const s = (p.state || "").toUpperCase();
+        if (s === "CRITICAL" || s === "DOWN") crits++;
+        else if (s === "WARNING") warns++;
+        else if (s === "UNKNOWN" || s === "UNREACHABLE") unknowns++;
+      }
 
-      const stateLabel = (s) => {
-        s = String(s).toUpperCase();
-        const map = {"0":"OK","1":"WARN","2":"CRIT","3":"UNKN","DOWN":"DOWN","UNREACH":"UNREACH"};
-        return map[s] || s;
-      };
+      let html = `<div class="toolbar">
+        <span class="title">cmkbar</span>
+        <span class="stats">
+          ${problems.length} problems`;
+      if (crits) html += ` &middot; <span class="crit-count">${crits} critical</span>`;
+      if (warns) html += ` &middot; <span class="warn-count">${warns} warning</span>`;
+      html += `</span></div>`;
 
-      let html = `<div class="header"><span>cmkbar</span><span class="count">${problems.length} problem${problems.length !== 1 ? "s" : ""}</span></div>`;
-      html += "<table><thead><tr><th>Host</th><th>Service</th><th>State</th><th>Duration</th><th>Attempt</th><th>Message</th></tr></thead><tbody>";
+      html += `<table>
+        <colgroup>
+          <col class="c-host"><col class="c-service"><col class="c-flags"><col class="c-state">
+          <col class="c-last"><col class="c-dur"><col class="c-att"><col class="c-msg">
+        </colgroup>
+        <thead><tr>
+          <th>Host</th><th>Service</th><th></th><th>State</th>
+          <th>Last Check</th><th>Duration</th><th>Att</th><th>Status Information</th>
+        </tr></thead><tbody>`;
+
+      // Sort: CRIT/DOWN first, then WARN, then UNKNOWN, then rest
+      const order = {"CRITICAL":0,"DOWN":0,"WARNING":1,"UNKNOWN":2,"UNREACHABLE":2,"PENDING":3};
+      problems.sort((a, b) => (order[(a.state||"").toUpperCase()] ?? 9) - (order[(b.state||"").toUpperCase()] ?? 9));
 
       for (const p of problems) {
-        const cls = stateClass(p.state);
-        html += `<tr class="${cls}">`;
+        const state = (p.state || "").toUpperCase();
+        let classes = state;
+        if (p.downtime) classes += " in-downtime";
+
+        // Flag icons like Nagstamon: ✓ = ack, ★ = downtime
+        let flags = "";
+        if (p.acknowledged) flags += "✓";
+        if (p.downtime) flags += "★";
+
+        html += `<tr class="${classes}">`;
         html += `<td>${esc(p.host)}</td>`;
-        html += `<td>${esc(p.service)}</td>`;
-        html += `<td>${stateLabel(p.state)}</td>`;
+        html += `<td>${esc(p.service || "(host)")}</td>`;
+        html += `<td class="flags">${flags}</td>`;
+        html += `<td>${esc(state)}</td>`;
+        html += `<td>${esc(p.last_check)}</td>`;
         html += `<td>${esc(p.duration)}</td>`;
         html += `<td>${esc(p.attempt)}</td>`;
         html += `<td>${esc(p.message)}</td>`;
-        html += "</tr>";
+        html += `</tr>`;
       }
 
       html += "</tbody></table>";
@@ -126,7 +193,6 @@
       return d.innerHTML;
     }
 
-    // Called from Python via webview.evaluate_js or window.pybridge
     window.updateProblems = render;
   </script>
 </body>
