@@ -1,14 +1,14 @@
 # cmkview
 
-A lightweight macOS menu bar app that monitors a [CheckMK](https://checkmk.com/) server and displays current problems in a floating popup table.
+A lightweight macOS app that monitors a [CheckMK](https://checkmk.com/) server and displays current problems in a grouped incident dashboard.
 
-Inspired by [Nagstamon](https://github.com/henriwahl/nagstamon) but built from scratch — single backend (CheckMK), native macOS menu bar, minimal dependencies.
+Built from scratch — single backend (CheckMK), native macOS app, minimal dependencies. No custom CheckMK views required.
 
 ## Requirements
 
 - macOS
 - Python 3.11+
-- A CheckMK user account with access to the `nagstamon_hosts` and `nagstamon_svc` views
+- A CheckMK user account (any user that can see problems in the web UI)
 
 ## Configuration
 
@@ -47,9 +47,10 @@ The app bundle is created at `dist/cmkview.app`. Drag it to `/Applications` and 
 ## How it works
 
 1. Logs into CheckMK via cookie auth (`/check_mk/login.py`)
-2. Polls the `nagstamon_hosts` and `nagstamon_svc` Multisite views at the configured interval
+2. Polls the built-in `hostproblems` and `svcproblems` Multisite views at the configured interval
 3. Displays a problem count in the menu bar (✓ when clear, ⚠ N when problems exist)
-4. Click **Show Problems** to open a floating table — rows are coloured red (CRIT), yellow (WARN), or orange (UNKNOWN)
+4. Opens a dashboard window with problems grouped by category (memory, disk, network, services, etc.)
+5. Click state badges (DOWN/CRIT/WARN/UNKN) to filter by severity, toggle Hide Ack to filter acknowledged problems
 
 ## License
 

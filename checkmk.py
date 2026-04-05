@@ -227,27 +227,32 @@ class CheckMKClient:
         """Return combined host + service problems with normalised fields."""
         problems = []
 
-        for row in self._fetch_view("nagstamon_hosts"):
+        # Built-in CheckMK views — no custom/Nagstamon views required
+        for row in self._fetch_view("hostproblems"):
             state_raw = row.get("host_state", "")
             if state_raw.upper() not in HOST_PROBLEM_STATES:
                 continue
+
+            icons = row.get("host_icons", [])
+            if isinstance(icons, str):
+                icons = []
 
             problems.append(
                 _build_problem(
                     host=row.get("host", ""),
                     service_name="Host Status",
                     state=STATEMAP.get(state_raw, state_raw),
-                    last_check=row.get("host_check_age", ""),
-                    duration_raw=row.get("host_state_age", ""),
-                    attempt=row.get("host_attempt", ""),
-                    message=row.get("host_plugin_output", ""),
-                    acknowledged=row.get("host_acknowledged", "") == "yes",
-                    downtime=row.get("host_in_downtime", "") == "yes",
+                    last_check="",
+                    duration_raw="",
+                    attempt="",
+                    message="",
+                    acknowledged="ack" in icons,
+                    downtime="downtime" in icons,
                     site=row.get("sitename_plain", ""),
                 )
             )
 
-        for row in self._fetch_view("nagstamon_svc", {"hst0": "On", "hst1": "On"}):
+        for row in self._fetch_view("svcproblems"):
             state_raw = row.get("service_state", row.get("state", ""))
             if state_raw.upper() not in SVC_PROBLEM_STATES:
                 continue
@@ -255,7 +260,7 @@ class CheckMKClient:
             icons = row.get("service_icons", [])
             if isinstance(icons, str):
                 icons = []
-            ack_flag = row.get("svc_acknowledged", "") == "yes" or "ack" in icons
+            ack_flag = "ack" in icons
 
             service_name = row.get("service_description", "")
             problems.append(
@@ -265,10 +270,10 @@ class CheckMKClient:
                     state=STATEMAP.get(state_raw, state_raw),
                     last_check=row.get("svc_check_age", ""),
                     duration_raw=row.get("svc_state_age", ""),
-                    attempt=row.get("svc_attempt", ""),
+                    attempt="",
                     message=row.get("svc_plugin_output", ""),
                     acknowledged=ack_flag,
-                    downtime=row.get("svc_in_downtime", "") == "yes" or row.get("host_in_downtime", "") == "yes",
+                    downtime="downtime" in icons,
                     site=row.get("sitename_plain", ""),
                 )
             )

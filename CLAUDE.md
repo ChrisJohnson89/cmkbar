@@ -1,22 +1,21 @@
 # cmkview
 
-macOS menu bar app for monitoring a CheckMK server. Not a Nagstamon fork — a fresh rewrite focused solely on CheckMK.
+macOS app for monitoring a CheckMK server. A lightweight, CheckMK-focused alternative to Nagstamon.
 
 ## Stack
 
-- **rumps** — macOS menu bar icon and status display
-- **pywebview** — floating HTML popup window for the problem table
+- **PyObjC** (AppKit + WebKit) — native macOS window, menu bar icon, WKWebView dashboard
 - **requests** — HTTP session for CheckMK polling
 - **tomllib** (stdlib, Python 3.11+) — config parsing
 
 ## CheckMK integration
 
 - Cookie-based auth: `POST /check_mk/login.py` with `_username`, `_password`, `_login=1`
-- Poll two Multisite views with `output_format=json`:
-  - `view.py?view_name=nagstamon_hosts` — host problems
-  - `view.py?view_name=nagstamon_svc` — service problems
+- Poll two built-in Multisite views with `output_format=python`:
+  - `view.py?view_name=hostproblems` — host problems
+  - `view.py?view_name=svcproblems` — service problems
 - No REST API key needed — regular user login
-- The user's CheckMK account must have permission to see the nagstamon views
+- No custom views required — uses CheckMK's built-in views
 
 ## Config
 
@@ -31,11 +30,13 @@ interval = 60
 
 ## UI behaviour
 
-- Menu bar shows a check mark when clean, warning icon + problem count when issues exist
-- Clicking the icon opens a pywebview popup with a scrollable HTML table
-- Table columns: Host, Service, State, Duration, Attempt, Message
-- Rows coloured red (CRIT/DOWN), yellow (WARN), or orange (UNKNOWN/UNREACH)
-- Click away or close to dismiss
+- Menu bar icon shows problem count (✓ when clear, ⚠ N when issues exist)
+- Full app window with grouped incident dashboard
+- Problems grouped by category (memory, disk, network, hardware, services, system)
+- Clickable state badges (DOWN/CRIT/WARN/UNKN) to filter by severity
+- Hide Ack toggle to filter acknowledged problems
+- Expand groups → hosts → individual services
+- UI state (collapsed groups, filters) persists across poll refreshes
 
 ## Packaging
 
