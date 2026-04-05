@@ -3,197 +3,520 @@
 <head>
 <meta charset="utf-8">
 <style>
+  :root {
+    --bg: #111113;
+    --surface: #1a1a1e;
+    --surface2: #222228;
+    --border: #2a2a30;
+    --text: #e0e0e4;
+    --text-dim: #888890;
+    --down-bg: #3d1130;
+    --down-border: #7a2260;
+    --down-text: #ff66cc;
+    --down-accent: #ff44bb;
+    --crit-bg: #3d1114;
+    --crit-border: #7a2228;
+    --crit-text: #ff6b6b;
+    --crit-accent: #ff4444;
+    --warn-bg: #3d3411;
+    --warn-border: #7a6a22;
+    --warn-text: #ffd666;
+    --warn-accent: #ffcc00;
+    --unkn-bg: #3d2811;
+    --unkn-border: #7a5222;
+    --unkn-text: #ffb366;
+    --unkn-accent: #ff9933;
+  }
+
   * { margin: 0; padding: 0; box-sizing: border-box; }
 
   body {
-    font-family: "SF Mono", "Menlo", "Monaco", monospace;
-    font-size: 12px;
-    background: #1a1a1a;
-    color: #e0e0e0;
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif;
+    font-size: 13px;
+    background: var(--bg);
+    color: var(--text);
+    -webkit-font-smoothing: antialiased;
   }
 
-  .toolbar {
+  /* === Header bar === */
+  .header {
     position: sticky;
     top: 0;
-    z-index: 10;
-    background: #2a2a2a;
-    padding: 6px 12px;
+    z-index: 20;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 10px 16px;
     display: flex;
     justify-content: space-between;
     align-items: center;
-    border-bottom: 2px solid #444;
-    font-family: -apple-system, BlinkMacSystemFont, sans-serif;
-    font-size: 13px;
   }
 
-  .toolbar .title { font-weight: 700; }
-  .toolbar .stats { color: #aaa; font-size: 12px; }
-  .toolbar .stats .crit-count { color: #ff4444; font-weight: 700; }
-  .toolbar .stats .warn-count { color: #ffcc00; font-weight: 700; }
+  .header .left { display: flex; align-items: center; gap: 14px; }
 
-  table {
-    width: 100%;
-    border-collapse: collapse;
-  }
-
-  thead { position: sticky; top: 37px; z-index: 5; }
-
-  th {
-    background: #333;
-    text-align: left;
-    padding: 4px 8px;
+  .header .brand {
     font-weight: 700;
+    font-size: 14px;
+    letter-spacing: -0.3px;
+  }
+
+  .filters {
+    display: flex;
+    gap: 6px;
+  }
+
+  .filter-btn {
+    font-family: -apple-system, BlinkMacSystemFont, sans-serif;
     font-size: 11px;
-    color: #ccc;
-    border-bottom: 2px solid #555;
-    white-space: nowrap;
+    font-weight: 600;
+    padding: 3px 10px;
+    border-radius: 4px;
+    border: 1px solid var(--border);
+    background: var(--surface2);
+    color: var(--text-dim);
+    cursor: pointer;
+    transition: all 0.15s;
     user-select: none;
   }
 
-  td {
-    padding: 3px 8px;
-    border-bottom: 1px solid rgba(0,0,0,0.3);
-    white-space: nowrap;
+  .filter-btn:hover { border-color: #555; color: var(--text); }
+  .filter-btn.active { background: #2a3a2a; color: #6b6; border-color: #3a5a3a; }
+
+  .header .summary {
+    display: flex;
+    gap: 12px;
+    font-size: 12px;
+    color: var(--text-dim);
+    align-items: center;
+  }
+
+  .summary .badge {
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-weight: 700;
+    font-size: 11px;
+    font-family: "SF Mono", "Menlo", monospace;
+  }
+
+  .badge.down { background: var(--down-bg); color: var(--down-text); border: 1px solid var(--down-border); }
+  .badge.crit { background: var(--crit-bg); color: var(--crit-text); border: 1px solid var(--crit-border); }
+  .badge.warn { background: var(--warn-bg); color: var(--warn-text); border: 1px solid var(--warn-border); }
+  .badge.unkn { background: var(--unkn-bg); color: var(--unkn-text); border: 1px solid var(--unkn-border); }
+
+  /* === Content area === */
+  .content { padding: 12px 16px; }
+
+  /* === Group card === */
+  .group {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    margin-bottom: 10px;
+    overflow: hidden;
+  }
+
+  .group-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 14px;
+    cursor: pointer;
+    user-select: none;
+    transition: background 0.15s;
+  }
+
+  .group-header:hover { background: var(--surface2); }
+
+  .group-icon {
+    font-family: "SF Mono", "Menlo", monospace;
+    font-size: 10px;
+    font-weight: 700;
+    padding: 3px 6px;
+    border-radius: 4px;
+    background: var(--surface2);
+    color: var(--text-dim);
+    min-width: 32px;
+    text-align: center;
+  }
+
+  .group-title {
+    flex: 1;
+    font-weight: 600;
+    font-size: 13px;
+  }
+
+  .group-meta {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    font-size: 11px;
+    color: var(--text-dim);
+    font-family: "SF Mono", "Menlo", monospace;
+  }
+
+  .group-meta .count { font-weight: 600; }
+
+  .group-state {
+    font-weight: 700;
+    font-size: 11px;
+    padding: 2px 6px;
+    border-radius: 3px;
+  }
+
+  .group-state.DOWN  { background: var(--down-bg); color: var(--down-text); border: 1px solid var(--down-border); }
+  .group-state.CRIT  { background: var(--crit-bg); color: var(--crit-text); border: 1px solid var(--crit-border); }
+  .group-state.WARN  { background: var(--warn-bg); color: var(--warn-text); border: 1px solid var(--warn-border); }
+  .group-state.UNKN  { background: var(--unkn-bg); color: var(--unkn-text); border: 1px solid var(--unkn-border); }
+
+  .chevron {
+    font-size: 10px;
+    color: var(--text-dim);
+    transition: transform 0.2s;
+  }
+
+  .group.open .chevron { transform: rotate(90deg); }
+
+  /* === Host rows inside group === */
+  .group-body {
+    display: none;
+    border-top: 1px solid var(--border);
+  }
+
+  .group.open .group-body { display: block; }
+
+  .host-row {
+    padding: 6px 14px 6px 44px;
+    border-bottom: 1px solid var(--border);
+    cursor: pointer;
+    transition: background 0.1s;
+  }
+
+  .host-row:last-child { border-bottom: none; }
+  .host-row:hover { background: var(--surface2); }
+
+  .host-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+  }
+
+  .host-name {
+    font-weight: 600;
+    font-family: "SF Mono", "Menlo", monospace;
+    font-size: 12px;
+  }
+
+  .host-flags { font-size: 10px; color: var(--text-dim); }
+
+  .host-meta {
+    margin-left: auto;
+    font-size: 11px;
+    color: var(--text-dim);
+    font-family: "SF Mono", "Menlo", monospace;
+  }
+
+  /* === Service items inside host === */
+  .service-items {
+    display: none;
+    padding: 4px 0 4px 20px;
+  }
+
+  .host-row.expanded .service-items { display: block; }
+
+  .svc-item {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    padding: 3px 0;
+    font-size: 11px;
+    color: var(--text-dim);
+  }
+
+  .svc-label {
+    font-weight: 600;
+    color: var(--text);
+    min-width: 100px;
+    font-size: 11px;
+  }
+
+  .svc-badge {
+    font-family: "SF Mono", "Menlo", monospace;
+    font-size: 9px;
+    font-weight: 700;
+    padding: 1px 4px;
+    border-radius: 3px;
+    min-width: 34px;
+    text-align: center;
+  }
+
+  .svc-badge.DOWN { background: var(--down-bg); color: var(--down-text); }
+  .svc-badge.CRIT { background: var(--crit-bg); color: var(--crit-text); }
+  .svc-badge.WARN { background: var(--warn-bg); color: var(--warn-text); }
+  .svc-badge.UNKN { background: var(--unkn-bg); color: var(--unkn-text); }
+
+  .svc-msg {
+    flex: 1;
     overflow: hidden;
     text-overflow: ellipsis;
-    font-size: 12px;
-    line-height: 1.4;
+    white-space: nowrap;
+    font-size: 11px;
   }
 
-  /* Column widths */
-  col.c-host    { width: 100px; }
-  col.c-service { width: 80px; }
-  col.c-flags   { width: 40px; }
-  col.c-state   { width: 80px; }
-  col.c-last    { width: 100px; }
-  col.c-dur     { width: 100px; }
-  col.c-att     { width: 40px; }
-  col.c-msg     { width: auto; }
-
-  td:last-child {
-    white-space: normal;
-    word-break: break-word;
+  .svc-dur {
+    font-family: "SF Mono", "Menlo", monospace;
+    font-size: 10px;
+    white-space: nowrap;
+    color: var(--text-dim);
   }
 
-  /* === Nagstamon-style solid row colours === */
-  tr.CRITICAL td, tr.DOWN td {
-    background: #cc0000;
-    color: #fff;
-    border-bottom-color: #990000;
-  }
-  tr.WARNING td {
-    background: #ccaa00;
-    color: #000;
-    border-bottom-color: #aa8800;
-  }
-  tr.UNKNOWN td, tr.UNREACHABLE td {
-    background: #cc6600;
-    color: #fff;
-    border-bottom-color: #aa5500;
-  }
-  tr.PENDING td {
-    background: #555;
-    color: #ccc;
-    border-bottom-color: #444;
-  }
+  .svc-flags { font-size: 10px; }
 
-  /* Downtime rows get muted */
-  tr.in-downtime td { opacity: 0.6; }
-
-  tr:hover td { filter: brightness(1.15); }
-
-  .flags { font-size: 11px; letter-spacing: 1px; }
-
+  /* === OK state === */
   .ok-message {
     text-align: center;
     padding: 80px 20px;
+    font-size: 16px;
     color: #4a4;
-    font-size: 18px;
-    font-family: -apple-system, BlinkMacSystemFont, sans-serif;
   }
   .ok-message .sub {
     margin-top: 8px;
     font-size: 13px;
-    color: #666;
+    color: var(--text-dim);
+  }
+
+  .empty-filter {
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--text-dim);
+    font-size: 14px;
   }
 </style>
 </head>
 <body>
-  <div id="app"></div>
-  <script>
-    function render(problems) {
-      const app = document.getElementById("app");
+<div id="app"></div>
+<script>
+// Global state — survives across data refreshes
+let rawData = null;
+let hideAcked = false;
+let closedGroups = {};    // group id -> true if user collapsed it
+let expandedHosts = {};   // "groupId/host" -> true if user expanded it
 
-      if (!problems || problems.length === 0) {
-        app.innerHTML = '<div class="ok-message">All clear<div class="sub">No problems detected</div></div>';
-        return;
+function render(data) {
+  rawData = data;
+  redraw();
+}
+
+function saveUIState() {
+  closedGroups = {};
+  expandedHosts = {};
+  document.querySelectorAll('.group').forEach(el => {
+    const id = el.dataset.gid;
+    if (id && !el.classList.contains('open')) closedGroups[id] = true;
+  });
+  document.querySelectorAll('.host-row.expanded').forEach(el => {
+    const key = el.dataset.hkey;
+    if (key) expandedHosts[key] = true;
+  });
+}
+
+function redraw() {
+  // Capture UI state before rebuilding DOM
+  saveUIState();
+
+  const app = document.getElementById("app");
+  const data = rawData;
+
+  if (!data || !data.groups || data.groups.length === 0) {
+    if (!data || !data.summary || data.summary.problem_count === 0) {
+      app.innerHTML = '<div class="ok-message">All clear<div class="sub">No problems detected</div></div>';
+      return;
+    }
+  }
+
+  // Filter groups by removing acked/downtime items, then rebuild counts
+  const filtered = filterGroups(data.groups);
+  const totalProblems = filtered.reduce((n, g) => n + g.problem_count, 0);
+  const totalHosts = new Set(filtered.flatMap(g => g.hosts.map(h => h.host))).size;
+
+  // Count states from filtered data
+  let downCount = 0, critCount = 0, warnCount = 0, unknCount = 0;
+  for (const g of filtered) {
+    for (const h of g.hosts) {
+      for (const svc of h.items) {
+        const b = svc.state_badge;
+        if (b === "DOWN") downCount++;
+        else if (b === "CRIT") critCount++;
+        else if (b === "WARN") warnCount++;
+        else if (b === "UNKN") unknCount++;
       }
+    }
+  }
 
-      // Counts
-      let crits = 0, warns = 0, unknowns = 0;
-      for (const p of problems) {
-        const s = (p.state || "").toUpperCase();
-        if (s === "CRITICAL" || s === "DOWN") crits++;
-        else if (s === "WARNING") warns++;
-        else if (s === "UNKNOWN" || s === "UNREACHABLE") unknowns++;
+  let html = `<div class="header">
+    <div class="left">
+      <span class="brand">cmkbar</span>
+      <div class="filters">
+        <button class="filter-btn${hideAcked ? ' active' : ''}" id="btn-ack">Hide Ack</button>
+      </div>
+    </div>
+    <span class="summary">
+      <span>${totalHosts} hosts</span>
+      <span>${totalProblems} problems</span>`;
+  if (downCount) html += `<span class="badge down">${downCount} DOWN</span>`;
+  if (critCount) html += `<span class="badge crit">${critCount} CRIT</span>`;
+  if (warnCount) html += `<span class="badge warn">${warnCount} WARN</span>`;
+  if (unknCount) html += `<span class="badge unkn">${unknCount} UNKN</span>`;
+  html += `</span></div><div class="content">`;
+
+  if (filtered.length === 0) {
+    html += '<div class="empty-filter">All problems are acknowledged or in downtime</div>';
+  } else {
+    for (const g of filtered) {
+      html += renderGroup(g);
+    }
+  }
+
+  html += '</div>';
+  app.innerHTML = html;
+
+  // Filter button handlers
+  document.getElementById('btn-ack').addEventListener('click', (e) => {
+    e.stopPropagation();
+    hideAcked = !hideAcked;
+    redraw();
+  });
+
+  // Group toggle handlers
+  app.querySelectorAll('.group-header').forEach(el => {
+    el.addEventListener('click', () => el.parentElement.classList.toggle('open'));
+  });
+
+  // Host toggle handlers
+  app.querySelectorAll('.host-row').forEach(el => {
+    el.addEventListener('click', (e) => {
+      if (e.target.closest('.service-items')) return;
+      el.classList.toggle('expanded');
+    });
+  });
+}
+
+function filterGroups(groups) {
+  if (!hideAcked) return groups;
+
+  const result = [];
+  for (const g of groups) {
+    const filteredHosts = [];
+    for (const h of g.hosts) {
+      const filteredItems = h.items.filter(svc => {
+        if (hideAcked && svc.acknowledged) return false;
+        return true;
+      });
+      if (filteredItems.length === 0) continue;
+
+      // Rebuild host entry with filtered items
+      let worstDur = 0, worstDurStr = "0s", ackCount = 0, dtCount = 0;
+      for (const svc of filteredItems) {
+        if (svc.duration_seconds >= worstDur) {
+          worstDur = svc.duration_seconds;
+          worstDurStr = svc.duration || worstDurStr;
+        }
+        if (svc.acknowledged) ackCount++;
+        if (svc.downtime) dtCount++;
       }
+      filteredHosts.push({
+        ...h,
+        items: filteredItems,
+        problem_count: filteredItems.length,
+        worst_duration: worstDurStr,
+        worst_duration_seconds: worstDur,
+        acknowledged_count: ackCount,
+        downtime_count: dtCount,
+      });
+    }
+    if (filteredHosts.length === 0) continue;
 
-      let html = `<div class="toolbar">
-        <span class="title">cmkbar</span>
-        <span class="stats">
-          ${problems.length} problems`;
-      if (crits) html += ` &middot; <span class="crit-count">${crits} critical</span>`;
-      if (warns) html += ` &middot; <span class="warn-count">${warns} warning</span>`;
-      html += `</span></div>`;
-
-      html += `<table>
-        <colgroup>
-          <col class="c-host"><col class="c-service"><col class="c-flags"><col class="c-state">
-          <col class="c-last"><col class="c-dur"><col class="c-att"><col class="c-msg">
-        </colgroup>
-        <thead><tr>
-          <th>Host</th><th>Service</th><th></th><th>State</th>
-          <th>Last Check</th><th>Duration</th><th>Att</th><th>Status Information</th>
-        </tr></thead><tbody>`;
-
-      // Sort: CRIT/DOWN first, then WARN, then UNKNOWN, then rest
-      const order = {"CRITICAL":0,"DOWN":0,"WARNING":1,"UNKNOWN":2,"UNREACHABLE":2,"PENDING":3};
-      problems.sort((a, b) => (order[(a.state||"").toUpperCase()] ?? 9) - (order[(b.state||"").toUpperCase()] ?? 9));
-
-      for (const p of problems) {
-        const state = (p.state || "").toUpperCase();
-        let classes = state;
-        if (p.downtime) classes += " in-downtime";
-
-        // Flag icons like Nagstamon: ✓ = ack, ★ = downtime
-        let flags = "";
-        if (p.acknowledged) flags += "✓";
-        if (p.downtime) flags += "★";
-
-        html += `<tr class="${classes}">`;
-        html += `<td>${esc(p.host)}</td>`;
-        html += `<td>${esc(p.service || "(host)")}</td>`;
-        html += `<td class="flags">${flags}</td>`;
-        html += `<td>${esc(state)}</td>`;
-        html += `<td>${esc(p.last_check)}</td>`;
-        html += `<td>${esc(p.duration)}</td>`;
-        html += `<td>${esc(p.attempt)}</td>`;
-        html += `<td>${esc(p.message)}</td>`;
-        html += `</tr>`;
+    // Rebuild group with filtered hosts
+    let gWorstDur = 0, gWorstDurStr = "0s";
+    for (const h of filteredHosts) {
+      if (h.worst_duration_seconds >= gWorstDur) {
+        gWorstDur = h.worst_duration_seconds;
+        gWorstDurStr = h.worst_duration || gWorstDurStr;
       }
+    }
+    const totalProblems = filteredHosts.reduce((n, h) => n + h.problem_count, 0);
+    result.push({
+      ...g,
+      hosts: filteredHosts,
+      host_count: filteredHosts.length,
+      problem_count: totalProblems,
+      worst_duration: gWorstDurStr,
+      worst_duration_seconds: gWorstDur,
+    });
+  }
+  return result;
+}
 
-      html += "</tbody></table>";
-      app.innerHTML = html;
+function renderGroup(g) {
+  const gid = g.id || (g.category + '-' + g.state);
+  const isOpen = !closedGroups[gid];
+  let html = `<div class="group${isOpen ? ' open' : ''}" data-gid="${esc(gid)}">
+    <div class="group-header">
+      <span class="group-icon">${esc(g.category_icon)}</span>
+      <span class="group-title">${esc(g.category_label)}</span>
+      <span class="group-meta">
+        <span class="count">${g.host_count} host${g.host_count !== 1 ? 's' : ''}</span>
+        <span>${g.problem_count} issue${g.problem_count !== 1 ? 's' : ''}</span>
+        <span>${esc(g.worst_duration)}</span>
+      </span>
+      <span class="group-state ${g.state_badge}">${g.state_badge}</span>
+      <span class="chevron">&#9654;</span>
+    </div>
+    <div class="group-body">`;
+
+  for (const host of g.hosts) {
+    let flags = '';
+    if (host.acknowledged_count) flags += '✓';
+    if (host.downtime_count) flags += '★';
+
+    const hkey = gid + '/' + host.host;
+    const isExpanded = expandedHosts[hkey];
+    html += `<div class="host-row${isExpanded ? ' expanded' : ''}" data-hkey="${esc(hkey)}">
+      <div class="host-header">
+        <span class="host-name">${esc(host.host)}</span>`;
+    if (flags) html += `<span class="host-flags">${flags}</span>`;
+    html += `<span class="host-meta">${host.problem_count} issue${host.problem_count !== 1 ? 's' : ''} &middot; ${esc(host.worst_duration)}</span>
+      </div>
+      <div class="service-items">`;
+
+    for (const svc of host.items) {
+      let svcFlags = '';
+      if (svc.acknowledged) svcFlags += '✓';
+      if (svc.downtime) svcFlags += '★';
+
+      html += `<div class="svc-item">
+        <span class="svc-badge ${svc.state_badge}">${svc.state_badge}</span>
+        <span class="svc-label">${esc(svc.service_label)}</span>
+        <span class="svc-msg">${esc(svc.message)}</span>
+        <span class="svc-dur">${esc(svc.duration)}</span>`;
+      if (svcFlags) html += `<span class="svc-flags">${svcFlags}</span>`;
+      html += `</div>`;
     }
 
-    function esc(s) {
-      if (s == null) return "";
-      const d = document.createElement("div");
-      d.textContent = String(s);
-      return d.innerHTML;
-    }
+    html += '</div></div>';
+  }
 
-    window.updateProblems = render;
-  </script>
+  html += '</div></div>';
+  return html;
+}
+
+function esc(s) {
+  if (s == null) return "";
+  const d = document.createElement("div");
+  d.textContent = String(s);
+  return d.innerHTML;
+}
+
+window.updateProblems = render;
+</script>
 </body>
 </html>
