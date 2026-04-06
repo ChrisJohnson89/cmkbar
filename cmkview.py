@@ -101,6 +101,28 @@ class SetupMessageHandler(AppKit.NSObject):
             self._app_delegate._send_setup_result(False, str(e))
 
 
+class StatusBarHandler(AppKit.NSObject):
+    """Receives problem count updates from JS to update the menu bar."""
+
+    _app_delegate = objc.ivar()
+
+    def initWithDelegate_(self, delegate):
+        self = objc.super(StatusBarHandler, self).init()
+        if self is None:
+            return None
+        self._app_delegate = delegate
+        return self
+
+    def userContentController_didReceiveScriptMessage_(self, controller, message):
+        try:
+            count = int(message.body())
+            self._app_delegate._bar_item.button().setTitle_(
+                "cmkview ✓" if count == 0 else f"cmkview ⚠ {count}"
+            )
+        except (ValueError, TypeError):
+            pass
+
+
 class AppDelegate(AppKit.NSObject):
     def init(self):
         self = objc.super(AppDelegate, self).init()
@@ -217,6 +239,9 @@ class AppDelegate(AppKit.NSObject):
         if with_setup_handler:
             handler = SetupMessageHandler.alloc().initWithDelegate_(self)
             wk_conf.userContentController().addScriptMessageHandler_name_(handler, "cmksetup")
+        else:
+            sb_handler = StatusBarHandler.alloc().initWithDelegate_(self)
+            wk_conf.userContentController().addScriptMessageHandler_name_(sb_handler, "cmkstatus")
 
         frame = self._main_window.contentView().bounds()
         wk_view = WebKit.WKWebView.alloc().initWithFrame_configuration_(frame, wk_conf)
@@ -444,10 +469,6 @@ class AppDelegate(AppKit.NSObject):
 
     @objc.typedSelector(b"v@:@")
     def onPollSuccess_(self, _obj):
-        problem_count = len(self._problems)
-        self._bar_item.button().setTitle_(
-            "cmkview ✓" if problem_count == 0 else f"cmkview ⚠ {problem_count}"
-        )
         payload = build_popup_payload(self._problems)
         if self._page_loaded:
             self._push_payload(payload)
