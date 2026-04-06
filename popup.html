@@ -38,6 +38,51 @@
     -webkit-font-smoothing: antialiased;
   }
 
+  .update-banner {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 16px;
+    background: #18181c;
+    border-bottom: 1px solid #30303a;
+    color: var(--text-dim);
+    font-size: 12px;
+  }
+
+  .update-banner-text {
+    flex: 1;
+    line-height: 1.4;
+  }
+
+  .update-banner strong {
+    color: var(--text);
+    font-weight: 600;
+  }
+
+  .update-banner a {
+    color: #8fd19e;
+    font-weight: 600;
+    text-decoration: none;
+  }
+
+  .update-banner a:hover {
+    text-decoration: underline;
+  }
+
+  .update-banner-dismiss {
+    border: none;
+    background: transparent;
+    color: var(--text-dim);
+    cursor: pointer;
+    font-size: 14px;
+    line-height: 1;
+    padding: 0;
+  }
+
+  .update-banner-dismiss:hover {
+    color: var(--text);
+  }
+
   /* === Header bar === */
   .header {
     position: sticky;
@@ -308,6 +353,8 @@ let hideAcked = false;
 let hiddenStates = {};    // badge -> true if toggled off (e.g. "DOWN", "CRIT", "WARN", "UNKN")
 let closedGroups = {};    // group id -> true if user collapsed it
 let expandedHosts = {};   // "groupId/host" -> true if user expanded it
+let currentUpdateInfo = null;
+let updateBannerDismissed = false;
 
 function render(data) {
   rawData = data;
@@ -333,10 +380,12 @@ function redraw() {
 
   const app = document.getElementById("app");
   const data = rawData;
+  const bannerHtml = renderUpdateBanner();
 
   if (!data || !data.groups || data.groups.length === 0) {
     if (!data || !data.summary || data.summary.problem_count === 0) {
-      app.innerHTML = '<div class="ok-message">All clear<div class="sub">No problems detected</div></div>';
+      app.innerHTML = `${bannerHtml}<div class="ok-message">All clear<div class="sub">No problems detected</div></div>`;
+      bindUpdateBannerHandlers();
       return;
     }
   }
@@ -361,7 +410,7 @@ function redraw() {
     }
   }
 
-  let html = `<div class="header">
+  let html = `${bannerHtml}<div class="header">
     <div class="left">
       <span class="brand">cmkview</span>
       <div class="filters">
@@ -388,6 +437,7 @@ function redraw() {
 
   html += '</div>';
   app.innerHTML = html;
+  bindUpdateBannerHandlers();
 
   // Filter button handlers
   document.getElementById('btn-ack').addEventListener('click', (e) => {
@@ -552,6 +602,29 @@ function renderGroup(g) {
   return html;
 }
 
+function renderUpdateBanner() {
+  if (!currentUpdateInfo || updateBannerDismissed) return '';
+
+  return `<div class="update-banner" id="update-banner">
+    <div class="update-banner-text">
+      <strong>cmkview v${esc(currentUpdateInfo.version)} available</strong> &mdash;
+      <a href="${esc(currentUpdateInfo.url)}" target="_blank" rel="noreferrer">Download</a>
+    </div>
+    <button class="update-banner-dismiss" id="update-dismiss" aria-label="Dismiss update banner">&times;</button>
+  </div>`;
+}
+
+function bindUpdateBannerHandlers() {
+  const dismissButton = document.getElementById('update-dismiss');
+  if (!dismissButton) return;
+  dismissButton.addEventListener('click', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    updateBannerDismissed = true;
+    redraw();
+  });
+}
+
 function esc(s) {
   if (s == null) return "";
   const d = document.createElement("div");
@@ -560,6 +633,11 @@ function esc(s) {
 }
 
 window.updateProblems = render;
+window.showUpdateBanner = function(info) {
+  if (!info || !info.version || !info.url) return;
+  currentUpdateInfo = info;
+  redraw();
+};
 </script>
 </body>
 </html>

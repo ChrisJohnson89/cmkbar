@@ -13,11 +13,13 @@ import objc
 
 import checkmk
 import config
+import updater
 
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 POPUP_HTML_PATH = os.path.join(BASE_DIR, "popup.html")
 SETUP_HTML_PATH = os.path.join(BASE_DIR, "setup.html")
+__version__ = "0.1.0"
 
 STATE_PRIORITY = {
     "DOWN": 0,
@@ -87,12 +89,16 @@ class AppDelegate(AppKit.NSObject):
         self._main_window = None
         self._wk_view = None
         self._bar_item = None
+        self._bar_menu = None
         self._cmk_client = None
         self._app_cfg = None
         self._page_loaded = False
         self._pending_payload = None
         self._poll_timer = None
         self._mode = None  # "setup" or "dashboard"
+        self._update_info = None
+        self._update_menu_item = None
+        self._update_check_started = False
         return self
 
     def applicationDidFinishLaunching_(self, notification):
@@ -134,6 +140,7 @@ class AppDelegate(AppKit.NSObject):
         qi = AppKit.NSMenuItem.alloc().initWithTitle_action_keyEquivalent_("Quit", self.cmdQuit_, "q")
         qi.setTarget_(self)
         bar_menu.addItem_(qi)
+        self._bar_menu = bar_menu
         self._bar_item.setMenu_(bar_menu)
 
         # --- Create window ---
@@ -143,6 +150,7 @@ class AppDelegate(AppKit.NSObject):
         self._app_cfg = config.load()
         if self._app_cfg.get("url") and self._app_cfg.get("username") and self._app_cfg.get("password"):
             self._start_dashboard()
+            self._begin_update_check()
         else:
             self._show_setup()
 
@@ -257,6 +265,7 @@ class AppDelegate(AppKit.NSObject):
     @objc.typedSelector(b"v@:@")
     def onStartDashboardTimer_(self, timer):
         self._start_dashboard()
+        self._begin_update_check()
 
     # ── Dashboard flow ──
 
@@ -301,6 +310,8 @@ class AppDelegate(AppKit.NSObject):
                 timer.invalidate()
                 if self._pending_payload is not None:
                     self._push_payload(self._pending_payload)
+                if self._update_info is not None:
+                    self._push_update_banner(self._update_info)
         self._wk_view.evaluateJavaScript_completionHandler_(
             "typeof updateProblems === 'function'", callback
         )
@@ -309,6 +320,43 @@ class AppDelegate(AppKit.NSObject):
         data_json = json.dumps(payload).replace("</", "<\\/")
         js = f"updateProblems({data_json})"
         self._wk_view.evaluateJavaScript_completionHandler_(js, None)
+
+    def _push_update_banner(self, update_info):
+        data_json = json.dumps(update_info).replace("</", "<\\/")
+        js = (
+            "if (typeof window.showUpdateBanner === 'function') "
+            f"window.showUpdateBanner({data_json})"
+        )
+        self._wk_view.evaluateJavaScript_completionHandler_(js, None)
+
+    def _begin_update_check(self):
+        if self._update_check_started:
+            return
+        self._update_check_started = True
+        threading.Thread(target=self._check_for_updates, daemon=True).start()
+
+    def _check_for_updates(self):
+        update_info = updater.check_for_update(__version__)
+        if update_info is None:
+            return
+        self._update_info = update_info
+        self.performSelectorOnMainThread_withObject_waitUntilDone_(
+            self.onUpdateCheckComplete_, None, False
+        )
+
+    def _ensure_update_menu_item(self):
+        if self._bar_menu is None or self._update_info is None:
+            return
+        title = f"Update Available (v{self._update_info['version']})"
+        if self._update_menu_item is None:
+            item = AppKit.NSMenuItem.alloc().initWithTitle_action_keyEquivalent_(
+                title, self.cmdOpenUpdate_, ""
+            )
+            item.setTarget_(self)
+            self._bar_menu.insertItem_atIndex_(item, 2)
+            self._update_menu_item = item
+            return
+        self._update_menu_item.setTitle_(title)
 
     # ── Menu actions ──
 
@@ -321,6 +369,17 @@ class AppDelegate(AppKit.NSObject):
     def cmdRefresh_(self, sender):
         if self._mode == "dashboard":
             threading.Thread(target=self._do_poll, daemon=True).start()
+
+    @objc.typedSelector(b"v@:@")
+    def cmdOpenUpdate_(self, sender):
+        if not self._update_info:
+            return
+        url = self._update_info.get("url", "").strip()
+        if not url:
+            return
+        ns_url = Foundation.NSURL.URLWithString_(url)
+        if ns_url is not None:
+            AppKit.NSWorkspace.sharedWorkspace().openURL_(ns_url)
 
     @objc.typedSelector(b"v@:@")
     def cmdQuit_(self, sender):
@@ -359,6 +418,14 @@ class AppDelegate(AppKit.NSObject):
     @objc.typedSelector(b"v@:@")
     def onPollError_(self, _obj):
         self._bar_item.button().setTitle_("cmkview ✗")
+
+    @objc.typedSelector(b"v@:@")
+    def onUpdateCheckComplete_(self, _obj):
+        if self._update_info is None:
+            return
+        self._ensure_update_menu_item()
+        if self._mode == "dashboard" and self._page_loaded and self._wk_view is not None:
+            self._push_update_banner(self._update_info)
 
 
 def build_popup_payload(problems: list[dict]) -> dict:
