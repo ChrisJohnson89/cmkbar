@@ -61,27 +61,15 @@ class WindowDelegate(AppKit.NSObject):
 
 
 class ExternalLinkHandler(AppKit.NSObject):
-    """Open target=_blank and external links in the default browser."""
+    """Open target=_blank links in the default browser."""
 
     def webView_createWebViewWithConfiguration_forNavigationAction_windowFeatures_(
         self, webView, configuration, navigationAction, windowFeatures
     ):
-        # target="_blank" links come here - open in browser
         url = navigationAction.request().URL()
         if url:
             AppKit.NSWorkspace.sharedWorkspace().openURL_(url)
         return None
-
-    def webView_decidePolicyForNavigationAction_decisionHandler_(
-        self, webView, navigationAction, decisionHandler
-    ):
-        url = navigationAction.request().URL()
-        # Allow file:// and about: URLs (our local HTML), open everything else in browser
-        if url and url.scheme() not in ("file", "about", ""):
-            AppKit.NSWorkspace.sharedWorkspace().openURL_(url)
-            decisionHandler(1)  # WKNavigationActionPolicyCancel
-            return
-        decisionHandler(0)  # WKNavigationActionPolicyAllow
 
 
 class SetupMessageHandler(AppKit.NSObject):
@@ -236,10 +224,9 @@ class AppDelegate(AppKit.NSObject):
             AppKit.NSViewWidthSizable | AppKit.NSViewHeightSizable
         )
 
-        # Handle external links and target="_blank"
+        # Handle target="_blank" links (opens in default browser)
         self._link_handler = ExternalLinkHandler.alloc().init()
         wk_view.setUIDelegate_(self._link_handler)
-        wk_view.setNavigationDelegate_(self._link_handler)
 
         return wk_view
 
