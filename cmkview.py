@@ -51,6 +51,15 @@ CATEGORY_META = {
 }
 
 
+class WindowDelegate(AppKit.NSObject):
+    """Release secure input when the window loses focus."""
+
+    def windowDidResignKey_(self, notification):
+        window = notification.object()
+        # Force the WebView to give up first responder, which disables secure input
+        window.makeFirstResponder_(None)
+
+
 class SetupMessageHandler(AppKit.NSObject):
     """Receives login form submissions from the setup WebView."""
 
@@ -95,6 +104,7 @@ class AppDelegate(AppKit.NSObject):
         self._page_loaded = False
         self._pending_payload = None
         self._poll_timer = None
+        self._win_delegate = None
         self._mode = None  # "setup" or "dashboard"
         self._update_info = None
         self._update_menu_item = None
@@ -180,6 +190,10 @@ class AppDelegate(AppKit.NSObject):
         self._main_window.setTitle_("cmkview")
         self._main_window.setMinSize_(Foundation.NSMakeSize(360, 360))
         self._main_window.setReleasedWhenClosed_(False)
+
+        # Release secure input when window loses focus (fixes Logitech/Karabiner hotkeys)
+        self._win_delegate = WindowDelegate.alloc().init()
+        self._main_window.setDelegate_(self._win_delegate)
 
         self._main_window.makeKeyAndOrderFront_(None)
         AppKit.NSApp.activateIgnoringOtherApps_(True)
