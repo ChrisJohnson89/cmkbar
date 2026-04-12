@@ -684,6 +684,7 @@ function redraw() {
       e.stopPropagation();
       const state = el.dataset.state;
       hiddenStates[state] = !hiddenStates[state];
+      savePrefs();
       redraw();
     });
   });
@@ -909,7 +910,7 @@ function esc(s) {
 function savePrefs() {
   if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.cmkprefs) {
     window.webkit.messageHandlers.cmkprefs.postMessage(
-      JSON.stringify({ hide_acked: hideAcked, font_size: fontSizeIndex, view_mode: viewMode })
+      JSON.stringify({ hide_acked: hideAcked, font_size: fontSizeIndex, view_mode: viewMode, hidden_states: hiddenStates })
     );
   }
 }
@@ -918,6 +919,7 @@ window.applyPrefs = function(prefs) {
   hideAcked = prefs.hide_acked || false;
   fontSizeIndex = prefs.font_size || 0;
   viewMode = prefs.view_mode || 'grouped';
+  hiddenStates = prefs.hidden_states || {};
   document.body.className = FONT_SIZES[fontSizeIndex] || '';
   if (rawData) redraw();
 };
