@@ -166,6 +166,7 @@ class PrefsHandler(AppKit.NSObject):
             cfg["hide_acked"] = data.get("hide_acked", False)
             cfg["font_size"] = data.get("font_size", 0)
             cfg["view_mode"] = data.get("view_mode", "grouped")
+            cfg["hidden_states"] = data.get("hidden_states", {})
             config.save_full(cfg)
         except Exception:
             pass
@@ -497,6 +498,7 @@ class AppDelegate(AppKit.NSObject):
             "hide_acked": self._app_cfg.get("hide_acked", False),
             "font_size": self._app_cfg.get("font_size", 0),
             "view_mode": self._app_cfg.get("view_mode", "grouped"),
+            "hidden_states": self._app_cfg.get("hidden_states", {}),
         })
         self._wk_view.evaluateJavaScript_completionHandler_(
             f"applyPrefs({prefs})", None

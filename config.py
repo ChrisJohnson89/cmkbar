@@ -13,6 +13,7 @@ DEFAULTS = {
     "hide_acked": False,
     "font_size": 0,
     "view_mode": "grouped",
+    "hidden_states": {},
 }
 
 
@@ -47,11 +48,14 @@ def save(
     hide_acked: bool = False,
     font_size: int = 0,
     view_mode: str = "grouped",
+    hidden_states: dict | None = None,
     path: str | None = None,
 ):
     path = path or DEFAULT_PATH
     if notify is None:
         notify = DEFAULTS["notify"]
+    if hidden_states is None:
+        hidden_states = {}
     notify_toml = "[" + ", ".join(f'"{s}"' for s in notify) + "]"
     content = (
         f'url = "{url.rstrip("/")}"\n'
@@ -64,6 +68,11 @@ def save(
         f"font_size = {font_size}\n"
         f'view_mode = "{view_mode}"\n'
     )
+    if hidden_states:
+        entries = "\n".join(
+            f'{k} = {"true" if v else "false"}' for k, v in hidden_states.items()
+        )
+        content += f"\n[hidden_states]\n{entries}\n"
     with open(path, "w") as f:
         f.write(content)
 
@@ -80,5 +89,6 @@ def save_full(cfg: dict, path: str | None = None):
         hide_acked=cfg.get("hide_acked", False),
         font_size=cfg.get("font_size", 0),
         view_mode=cfg.get("view_mode", "grouped"),
+        hidden_states=cfg.get("hidden_states", {}),
         path=path,
     )
